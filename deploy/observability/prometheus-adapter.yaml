@@ -1,0 +1,16 @@
+# Values for prometheus-community/prometheus-adapter.
+# Exposes RabbitMQ queue depth to Kubernetes as an *external* metric, which the Dispatch HPA reads:
+#   kubectl get --raw "/apis/external.metrics.k8s.io/v1beta1/namespaces/drukrescue/rabbitmq_queue_messages_ready?labelSelector=queue%3Ddispatch.requests"
+prometheus:
+  url: http://kube-prometheus-stack-prometheus.monitoring.svc
+  port: 9090
+
+rules:
+  default: false
+  external:
+    - seriesQuery: 'rabbitmq_queue_messages_ready{queue!=""}'
+      resources:
+        namespaced: false  # the queue lives in the "data" namespace; the HPA is in "drukrescue"
+      name:
+        as: rabbitmq_queue_messages_ready
+      metricsQuery: 'sum(<<.Series>>{<<.LabelMatchers>>}) by (queue)'

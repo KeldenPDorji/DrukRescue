@@ -1,0 +1,55 @@
+# Change these in Git; ArgoCD applies them. That's the whole point (objective b).
+repoURL: https://github.com/KeldenPDorji/DrukRescue.git
+targetRevision: main
+
+# Which deploy/envs/<env> overlay every service uses: dev (1 replica, light) or demo (2 replicas, HPA, PDBs).
+env: dev
+
+namespaces:
+  app: drukrescue
+  data: data
+  monitoring: monitoring
+
+services:
+  - gateway
+  - auth
+  - user
+  - incident
+  - dispatch
+  - location
+  - notification
+  - responder
+  - vehicle
+  - shelter
+  - resource
+  - alert
+  - weather
+  - analytics
+  - audit
+  - frontend
+
+# Upstream charts for the observability stack (values live in deploy/observability/<name>.yaml).
+monitoring:
+  enabled: true
+  charts:
+    - name: kube-prometheus-stack
+      repoURL: https://prometheus-community.github.io/helm-charts
+      version: 91.8.2
+      wave: "0"
+      serverSideApply: true  # its CRDs are too big for client-side apply
+    - name: loki
+      repoURL: https://grafana.github.io/helm-charts
+      version: 7.3.0
+      wave: "0"
+    - name: tempo
+      repoURL: https://grafana.github.io/helm-charts
+      version: 1.24.4
+      wave: "0"
+    - name: alloy
+      repoURL: https://grafana.github.io/helm-charts
+      version: 1.13.0
+      wave: "1"
+    - name: prometheus-adapter
+      repoURL: https://prometheus-community.github.io/helm-charts
+      version: 5.3.0
+      wave: "1"

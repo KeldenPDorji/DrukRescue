@@ -1,0 +1,10 @@
+apiVersion: v2
+name: auth
+description: "DrukRescue Auth: register, login, JWT issuing"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: drukrescue-lib
+    version: 0.1.0
+    repository: file://../drukrescue-lib

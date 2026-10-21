@@ -1,0 +1,10 @@
+apiVersion: v2
+name: vehicle
+description: "DrukRescue Vehicle: ambulances, fire trucks, rescue and police vehicles"
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: drukrescue-lib
+    version: 0.1.0
+    repository: file://../drukrescue-lib

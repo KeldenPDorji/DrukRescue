@@ -1,0 +1,20 @@
+# dev: light enough for a laptop. 1 replica each, small requests, no HPA.
+# Applied to every service chart (after the chart's own values.yaml).
+global:
+  env: dev
+  imageRegistry: ghcr.io/keldenpdorji
+  imagePullPolicy: IfNotPresent
+  otel:
+    endpoint: http://tempo.monitoring.svc.cluster.local:4318
+  serviceMonitor:
+    enabled: true
+  pdb:
+    enabled: false
+  ingress:
+    host: drukrescue.local
+    className: nginx
+
+replicaCount: 1
+resources:
+  requests: { cpu: 50m, memory: 96Mi }
+  limits: { memory: 256Mi }

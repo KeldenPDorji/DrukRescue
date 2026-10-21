@@ -1,0 +1,23 @@
+# The headline feature: scale Dispatch 2 -> 6 on RabbitMQ queue depth (rescue.md section 12).
+# The external metric is served by prometheus-adapter (deploy/observability/prometheus-adapter.yaml).
+# Fallback if the adapter fights you: KEDA's RabbitMQ scaler (TASKS.md C2).
+env:
+  PROCESSING_DELAY_SECONDS: "2.5"  # "route calculation + confirming with the team"
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: rabbitmq_queue_messages_ready
+          selector:
+            matchLabels:
+              queue: dispatch.requests
+        target:
+          type: AverageValue
+          averageValue: "10"  # messages per pod; ~100 waiting -> wants 10 pods, capped at 6
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120  # default is 5 min; this gives "scale down after 2 min"

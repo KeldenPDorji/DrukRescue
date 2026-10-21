@@ -1,0 +1,171 @@
+# CI: test -> build -> push image -> bump the image tag in Git -> ArgoCD deploys it (GitOps).
+# Only services whose files changed are tested/built (a change to libs/common or the Dockerfile rebuilds all).
+# Actions are pinned to commit SHAs (supply-chain safety); the comment shows the version.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["services/**", "libs/**", "frontend/**", "Dockerfile", "pyproject.toml", "deploy/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["services/**", "libs/**", "frontend/**", "Dockerfile", "pyproject.toml", "deploy/**", ".github/workflows/ci.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+      images: ${{ steps.detect.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: detect
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base="$PUSH_BEFORE"; [[ "$EVENT" == "pull_request" ]] && base="$PR_BASE"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            changed="$(git ls-files)"            # first push: everything
+          else
+            changed="$(git diff --name-only "$base" HEAD)"
+          fi
+          all="$(ls services | grep -vx _template)"
+          if grep -qE '^(libs/common/|Dockerfile$|pyproject.toml$|\.github/workflows/ci\.yml$)' <<<"$changed"; then
+            services="$all"
+          else
+            services="$(sed -nE 's#^services/([^/]+)/.*#\1#p' <<<"$changed" | sort -u | grep -vx _template || true)"
+          fi
+          images="$services"
+          grep -q '^frontend/' <<<"$changed" && images="$(printf '%s\nfrontend' "$images")"
+          to_json() { jq -Rsc 'split("\n") | map(select(length > 0))'; }
+          echo "services=$(to_json <<<"$services")" >> "$GITHUB_OUTPUT"
+          echo "images=$(to_json <<<"$images")" >> "$GITHUB_OUTPUT"
+          echo "services: $(tr '\n' ' ' <<<"$services")"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+
+  test-common:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ./libs/common -r requirements-dev.txt
+      - run: cd libs/common && python -m pytest
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.services != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ./libs/common -r "services/${{ matrix.service }}/requirements.txt" -r requirements-dev.txt
+      - run: cd "services/${{ matrix.service }}" && python -m pytest
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - run: make helm-lint
+      - name: Render all services from the library chart (dev + demo)
+        run: make -s helm-template ENV=dev > /dev/null && make -s helm-template ENV=demo > /dev/null
+
+  image:
+    # Only on main: build, push to GHCR with the commit SHA as tag.
+    # (!failure && !cancelled: still run when "test" was skipped because only the frontend changed)
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && needs.changes.outputs.images != '[]' }}
+    needs: [changes, lint, test-common, test, helm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.changes.outputs.images) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "name=ghcr.io/${owner}/drukrescue-${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          if [[ "$IMAGE" == "frontend" ]]; then echo "context=frontend" >> "$GITHUB_OUTPUT"; else echo "context=." >> "$GITHUB_OUTPUT"; fi
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ steps.meta.outputs.context }}
+          build-args: SERVICE=${{ matrix.image }}
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.name }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      # TODO(D5): scan the pushed image (e.g. Trivy or Grype) and fail on CRITICAL vulnerabilities.
+      #           Pin the scanner action/binary to a verified commit SHA or digest, never a floating tag.
+
+  bump:
+    # GitOps: write the new tag into Git. ArgoCD notices and rolls it out. No kubectl.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && needs.changes.outputs.images != '[]' }}
+    needs: [changes, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: gitops-bump
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - env:
+          IMAGES: ${{ needs.changes.outputs.images }}
+        run: |
+          tag="sha-${GITHUB_SHA::12}"
+          for image in $(jq -r '.[]' <<<"$IMAGES"); do
+            TAG="$tag" yq -i '.image.tag = strenv(TAG)' "deploy/charts/${image}/values.yaml"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/charts/*/values.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "deploy: bump images to ${tag} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main

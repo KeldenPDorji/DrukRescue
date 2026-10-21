@@ -1,0 +1,73 @@
+# Values for prometheus-community/kube-prometheus-stack (version pinned in deploy/argocd/apps/values.yaml).
+# Prometheus + Alertmanager + Grafana + kube-state-metrics + node-exporter.
+
+# Kind doesn't expose these control-plane components; scraping them just produces "target down" noise.
+kubeEtcd: { enabled: false }
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+
+prometheus:
+  prometheusSpec:
+    # Pick up every ServiceMonitor/PrometheusRule in the cluster, not only ones labelled for this release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    enableFeatures: ["exemplar-storage"]  # metric -> trace links in Grafana
+    enableRemoteWriteReceiver: true       # Tempo's metrics-generator pushes span metrics here
+    scrapeInterval: 15s
+    retention: 3d
+    resources:
+      requests: { cpu: 300m, memory: 1Gi }
+      limits: { memory: 2Gi }
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+
+grafana:
+  # Admin credentials come from a Secret created by scripts/create-secrets.sh (never in Git).
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL  # dashboards ship as ConfigMaps from deploy/charts/observability
+    datasources:
+      exemplarTraceIdDestinations:
+        datasourceUid: tempo
+        traceIdLabelName: trace_id
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      jsonData:
+        # log line -> trace: our JSON logs carry "trace_id"
+        derivedFields:
+          - name: TraceID
+            datasourceUid: tempo
+            matcherRegex: '"trace_id":\s*"(\w+)"'
+            url: "$${__value.raw}"
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3200
+      jsonData:
+        # trace -> logs
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+          spanStartTimeShift: "-5m"
+          spanEndTimeShift: "5m"
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true

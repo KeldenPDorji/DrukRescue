@@ -1,0 +1,28 @@
+{{- if .Values.networkPolicies.enabled }}
+# Default-deny for the app namespace. Each service chart then opens exactly what it needs
+# (see the NetworkPolicy in deploy/charts/drukrescue-lib).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ .Values.appNamespace }}
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+# The data layer accepts connections only from the app namespace, monitoring, and itself.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-from-app-and-monitoring
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.appNamespace }} }
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: {{ .Values.monitoringNamespace }} }
+        - podSelector: {}
+{{- end }}

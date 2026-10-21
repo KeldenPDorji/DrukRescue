@@ -1,0 +1,245 @@
+# Local development: the whole platform on one machine, without Kubernetes.
+#   make env && make up        -> http://localhost:8080 (frontend), http://localhost:8000/api (gateway)
+#   docker compose --profile obs up -d   adds Grafana/Tempo/Loki/Prometheus at http://localhost:3000
+name: drukrescue
+
+x-service: &service
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
+
+x-env: &env
+  APP_ENV: local
+  LOG_LEVEL: INFO
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USER: drukrescue
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?run make env first}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  DB_HOST: postgres
+  DB_NAME: drukrescue
+  DB_PASSWORD: ${SERVICE_DB_PASSWORD:?run make env first}
+
+services:
+  # ---------------------------------------------------------------- data layer
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: drukrescue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make env first}
+      DRUKRESCUE_DB_SERVICES: auth user incident notification responder vehicle shelter resource alert analytics audit
+      # Locally every service role shares one password; in Kubernetes each gets its own (scripts/create-secrets.sh).
+      AUTH_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      USER_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      INCIDENT_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      NOTIFICATION_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      RESPONDER_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      VEHICLE_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      SHELTER_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      RESOURCE_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      ALERT_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      ANALYTICS_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+      AUDIT_DB_PASSWORD: ${SERVICE_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/charts/platform/files/init-db.sh:/docker-entrypoint-initdb.d/10-init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d drukrescue"]
+      interval: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: drukrescue
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?run make env first}
+    ports:
+      - "127.0.0.1:15672:15672" # management UI
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?run make env first}
+    command: ["sh", "-c", 'exec redis-server --requirepass "$$REDIS_PASSWORD" --save ""']
+    healthcheck:
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep PONG']
+      interval: 5s
+      retries: 20
+
+  # ---------------------------------------------------------------- edge
+  gateway:
+    <<: *service
+    build: { context: ., args: { SERVICE: gateway } }
+    image: drukrescue-gateway:local
+    depends_on: [redis]
+    environment:
+      <<: *env
+      SERVICE_NAME: gateway
+      JWT_SECRET: ${JWT_SECRET:?run make env first}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build: { context: ./frontend }
+    image: drukrescue-frontend:local
+    restart: unless-stopped
+    depends_on: [gateway]
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  # ---------------------------------------------------------------- core services
+  auth:
+    <<: *service
+    build: { context: ., args: { SERVICE: auth } }
+    image: drukrescue-auth:local
+    environment:
+      <<: *env
+      SERVICE_NAME: auth
+      DB_USER: svc_auth
+      JWT_SECRET: ${JWT_SECRET:?run make env first}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+
+  incident:
+    <<: *service
+    build: { context: ., args: { SERVICE: incident } }
+    image: drukrescue-incident:local
+    environment:
+      <<: *env
+      SERVICE_NAME: incident
+      DB_USER: svc_incident
+      AUTO_VERIFY: "false"
+
+  dispatch:
+    <<: *service
+    build: { context: ., args: { SERVICE: dispatch } }
+    image: drukrescue-dispatch:local
+    environment:
+      <<: *env
+      SERVICE_NAME: dispatch
+      PROCESSING_DELAY_SECONDS: "1"
+
+  location:
+    <<: *service
+    build: { context: ., args: { SERVICE: location } }
+    image: drukrescue-location:local
+    environment:
+      <<: *env
+      SERVICE_NAME: location
+
+  notification:
+    <<: *service
+    build: { context: ., args: { SERVICE: notification } }
+    image: drukrescue-notification:local
+    environment:
+      <<: *env
+      SERVICE_NAME: notification
+      DB_USER: svc_notification
+
+  # ---------------------------------------------------------------- thin services
+  user:
+    <<: *service
+    build: { context: ., args: { SERVICE: user } }
+    image: drukrescue-user:local
+    environment:
+      <<: *env
+      SERVICE_NAME: user
+      DB_USER: svc_user
+
+  responder:
+    <<: *service
+    build: { context: ., args: { SERVICE: responder } }
+    image: drukrescue-responder:local
+    environment:
+      <<: *env
+      SERVICE_NAME: responder
+      DB_USER: svc_responder
+
+  vehicle:
+    <<: *service
+    build: { context: ., args: { SERVICE: vehicle } }
+    image: drukrescue-vehicle:local
+    environment:
+      <<: *env
+      SERVICE_NAME: vehicle
+      DB_USER: svc_vehicle
+
+  shelter:
+    <<: *service
+    build: { context: ., args: { SERVICE: shelter } }
+    image: drukrescue-shelter:local
+    environment:
+      <<: *env
+      SERVICE_NAME: shelter
+      DB_USER: svc_shelter
+
+  resource:
+    <<: *service
+    build: { context: ., args: { SERVICE: resource } }
+    image: drukrescue-resource:local
+    environment:
+      <<: *env
+      SERVICE_NAME: resource
+      DB_USER: svc_resource
+
+  alert:
+    <<: *service
+    build: { context: ., args: { SERVICE: alert } }
+    image: drukrescue-alert:local
+    environment:
+      <<: *env
+      SERVICE_NAME: alert
+      DB_USER: svc_alert
+
+  weather:
+    <<: *service
+    build: { context: ., args: { SERVICE: weather } }
+    image: drukrescue-weather:local
+    depends_on: [redis]
+    environment:
+      <<: *env
+      SERVICE_NAME: weather
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  analytics:
+    <<: *service
+    build: { context: ., args: { SERVICE: analytics } }
+    image: drukrescue-analytics:local
+    environment:
+      <<: *env
+      SERVICE_NAME: analytics
+      DB_USER: svc_analytics
+
+  audit:
+    <<: *service
+    build: { context: ., args: { SERVICE: audit } }
+    image: drukrescue-audit:local
+    environment:
+      <<: *env
+      SERVICE_NAME: audit
+      DB_USER: svc_audit
+
+  # ---------------------------------------------------------------- optional observability (--profile obs)
+  lgtm:
+    image: grafana/otel-lgtm:0.35.0
+    profiles: [obs]
+    ports:
+      - "127.0.0.1:3000:3000" # Grafana (admin/admin on first login)
+
+volumes:
+  pgdata:
+  rabbitdata:

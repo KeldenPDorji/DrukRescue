@@ -1,0 +1,22 @@
+# The only thing applied by hand (once, by scripts/bootstrap-kind.sh). Everything else comes from Git:
+# this Application renders deploy/argocd/apps, which creates one Application per service + platform + monitoring.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drukrescue-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/KeldenPDorji/DrukRescue.git
+    targetRevision: main
+    path: deploy/argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

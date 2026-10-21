@@ -1,0 +1,21 @@
+# Values for installing ArgoCD itself (argo/argo-cd chart) on the Kind cluster. See scripts/bootstrap-kind.sh.
+dex:
+  enabled: false
+
+configs:
+  params:
+    server.insecure: true  # local only: we reach the UI through kubectl port-forward
+  cm:
+    # Make app-of-apps sync waves wait for child Applications to be Healthy
+    # (ArgoCD stopped doing this by default in v1.8). Without it, services may sync before CRDs exist.
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+      return hs

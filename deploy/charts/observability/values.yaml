@@ -1,0 +1,3 @@
+# Installed into the "monitoring" namespace. Grafana's sidecar loads every ConfigMap labelled grafana_dashboard=1.
+appNamespace: drukrescue
+dataNamespace: data

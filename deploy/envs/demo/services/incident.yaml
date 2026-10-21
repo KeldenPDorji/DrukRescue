@@ -1,0 +1,4 @@
+env:
+  # Keep "false" for the walkthrough (the admin verifies in demo step 2).
+  # For the burst load test, flip to "true" in a Git commit; ArgoCD rolls it out (a nice GitOps moment).
+  AUTO_VERIFY: "false"

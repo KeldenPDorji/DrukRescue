@@ -1,0 +1,70 @@
+{
+  "uid": "drukrescue-command-centre",
+  "title": "DrukRescue · Command Centre",
+  "tags": ["drukrescue"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Dispatch queue depth vs Dispatch replicas",
+      "description": "The autoscaling demo: queue grows -> replicas go 2 -> 6 -> queue drains -> scale down after 2 min.",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(rabbitmq_queue_messages_ready{queue=\"dispatch.requests\"})", "legendFormat": "messages waiting" },
+        { "refId": "B", "expr": "max(kube_deployment_status_replicas{namespace=\"drukrescue\", deployment=\"dispatch\"})", "legendFormat": "dispatch replicas" },
+        { "refId": "C", "expr": "max(kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"drukrescue\", horizontalpodautoscaler=\"dispatch\"})", "legendFormat": "HPA desired" }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*replicas|HPA desired" }, "properties": [ { "id": "custom.axisPlacement", "value": "right" } ] }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Incidents reported per minute, by type",
+      "gridPos": { "x": 0, "y": 9, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (type) (rate(drukrescue_incidents_created_total[2m])) * 60", "legendFormat": "{{type}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Time to dispatch (p50 / p95)",
+      "gridPos": { "x": 12, "y": 9, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.5, sum by (le) (rate(drukrescue_time_to_dispatch_seconds_bucket[5m])))", "legendFormat": "p50", "exemplar": true },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(drukrescue_time_to_dispatch_seconds_bucket[5m])))", "legendFormat": "p95", "exemplar": true }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Units available",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "max by (kind) (drukrescue_units_available)", "legendFormat": "{{kind}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "text",
+      "title": "TODO (D4)",
+      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 5 },
+      "options": { "mode": "markdown", "content": "Still to add (TASKS.md D4):\n\n- Active incidents by severity (`drukrescue_incidents_active`)\n- Error rate & latency per service (`http_requests_total`, `http_request_duration_seconds`)\n\nThen build the **Cluster Health** dashboard (`cluster-health.json`)." }
+    }
+  ]
+}

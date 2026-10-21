@@ -1,0 +1,44 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: drukrescue
+  labels:
+    app.kubernetes.io/part-of: drukrescue
+spec:
+  groups:
+    - name: drukrescue.services
+      rules:
+        - alert: DrukRescueServiceDown
+          expr: up{namespace="{{ .Values.appNamespace }}"} == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations:
+            summary: "{{`{{ $labels.service }}`}} pod {{`{{ $labels.pod }}`}} is not answering /metrics"
+        - alert: DrukRescueHighErrorRate
+          expr: |
+            sum by (service) (rate(http_requests_total{status=~"5.."}[5m]))
+              / sum by (service) (rate(http_requests_total[5m])) > 0.05
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "{{`{{ $labels.service }}`}} returns more than 5% errors"
+    - name: drukrescue.dispatch
+      rules:
+        - alert: DispatchBacklog
+          expr: sum(rabbitmq_queue_messages_ready{queue="dispatch.requests"}) > 50
+          for: 5m
+          labels: { severity: warning }
+          annotations:
+            summary: "More than 50 incidents waiting for dispatch for 5 minutes"
+        - alert: DispatchGivingUp
+          expr: increase(drukrescue_dispatch_outcomes_total{outcome="unassigned"}[10m]) > 0
+          labels: { severity: warning }
+          annotations:
+            summary: "Dispatch could not find a free team for some incidents (manual dispatch needed)"
+        - alert: DeadLetteredMessages
+          expr: sum(rabbitmq_queue_messages_ready{queue="drukrescue.dead-letter"}) > 0
+          for: 1m
+          labels: { severity: warning }
+          annotations:
+            summary: "Messages failed twice and were dead-lettered; check the consumer logs"
+    # TODO(D4): rules for PostgreSQL/RabbitMQ down, PVC almost full, pods restarting.

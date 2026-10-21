@@ -1,0 +1,35 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kubeconfig*
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Helm: dependencies are rebuilt from Chart.yaml (ArgoCD does this too)
+deploy/charts/*/charts/
+deploy/charts/*/Chart.lock
+*.tgz
+
+# Load test output
+loadtest/results/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

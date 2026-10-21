@@ -1,0 +1,3 @@
+env:
+  # The load test fires 100 reports in under a minute from a few test users.
+  RATE_LIMIT_PER_MINUTE: "600"

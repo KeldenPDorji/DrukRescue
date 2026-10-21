@@ -1,0 +1,41 @@
+{{- if .Values.monitoring.enabled }}
+{{- range .Values.monitoring.charts }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # The upstream chart...
+    - repoURL: {{ .repoURL }}
+      chart: {{ .name }}
+      targetRevision: {{ .version }}
+      helm:
+        releaseName: {{ .name }}
+        valueFiles:
+          - $values/deploy/observability/{{ .name }}.yaml
+    # ...with values from our repo.
+    - repoURL: {{ $.Values.repoURL }}
+      targetRevision: {{ $.Values.targetRevision }}
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ $.Values.namespaces.monitoring }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      {{- if .serverSideApply }}
+      - ServerSideApply=true
+      {{- end }}
+{{- end }}
+{{- end }}

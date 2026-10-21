@@ -1,0 +1,20 @@
+# demo: what the final demo runs. 2 replicas each (spread across nodes), PDBs on, HPA on Dispatch.
+# If the laptop struggles, drop thin services to 1 replica in deploy/envs/demo/services/<name>.yaml.
+global:
+  env: demo
+  imageRegistry: ghcr.io/keldenpdorji
+  imagePullPolicy: IfNotPresent
+  otel:
+    endpoint: http://tempo.monitoring.svc.cluster.local:4318
+  serviceMonitor:
+    enabled: true
+  pdb:
+    enabled: true
+  ingress:
+    host: drukrescue.local
+    className: nginx
+
+replicaCount: 2
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { memory: 256Mi }

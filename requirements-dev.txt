@@ -1,0 +1,3 @@
+# Local development and CI tooling. Service dependencies live in libs/common and services/*/requirements.txt.
+pytest==9.1.1
+ruff==0.16.9

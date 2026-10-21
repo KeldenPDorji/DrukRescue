@@ -1,0 +1,37 @@
+# Installed into the "data" namespace. Secrets are NOT in Git: scripts/create-secrets.sh creates them.
+appNamespace: drukrescue
+monitoringNamespace: monitoring
+
+# Every service that owns a schema. Adding a service with a DB? Add it here AND in scripts/create-secrets.sh.
+dbServices: [auth, user, incident, notification, responder, vehicle, shelter, resource, alert, analytics, audit]
+
+secrets:
+  postgres: drukrescue-db        # POSTGRES_PASSWORD + <SERVICE>_DB_PASSWORD keys
+  rabbitmq: drukrescue-rabbitmq  # username, password
+  redis: drukrescue-redis        # password
+
+postgres:
+  image: postgres:17-alpine
+  storage: 2Gi
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 1Gi }
+
+rabbitmq:
+  image: rabbitmq:4.1-management-alpine
+  storage: 1Gi
+  resources:
+    requests: { cpu: 400m, memory: 768Mi }
+    limits: { memory: 1Gi }
+
+redis:
+  image: redis:7.4-alpine
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+serviceMonitor:
+  enabled: true
+
+networkPolicies:
+  enabled: true

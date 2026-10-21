@@ -1,0 +1,19 @@
+# Values for grafana/tempo (single binary). Services send OTLP/HTTP to tempo.monitoring:4318.
+tempo:
+  retention: 72h
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+  metricsGenerator:
+    enabled: true  # span metrics + service graph for Grafana's service map
+    remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+persistence:
+  enabled: true
+  size: 5Gi

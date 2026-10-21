@@ -1,0 +1,3 @@
+# Dispatch in dev: a short delay so you can watch the queue in the RabbitMQ UI.
+env:
+  PROCESSING_DELAY_SECONDS: "1"

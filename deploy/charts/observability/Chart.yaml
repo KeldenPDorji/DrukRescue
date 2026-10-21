@@ -1,0 +1,5 @@
+apiVersion: v2
+name: observability
+description: DrukRescue Grafana dashboards (as ConfigMaps) and Prometheus alert rules, all from Git
+type: application
+version: 0.1.0

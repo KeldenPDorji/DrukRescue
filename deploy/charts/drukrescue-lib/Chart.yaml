@@ -1,0 +1,5 @@
+apiVersion: v2
+name: drukrescue-lib
+description: Shared templates for every DrukRescue service (Deployment, Service, HPA, PDB, ConfigMap, NetworkPolicy, ServiceMonitor, Ingress)
+type: library
+version: 0.1.0

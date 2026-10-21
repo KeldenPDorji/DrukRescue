@@ -1,0 +1,17 @@
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/tests
+**/conftest.py
+.venv
+.git
+.github
+.env
+.env.*
+deploy
+docs
+frontend
+loadtest
+scripts
+*.md

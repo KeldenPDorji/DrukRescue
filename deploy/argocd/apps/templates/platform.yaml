@@ -1,0 +1,61 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drukrescue-platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: deploy/charts/platform
+    helm:
+      releaseName: platform
+      valuesObject:
+        appNamespace: {{ .Values.namespaces.app }}
+        monitoringNamespace: {{ .Values.namespaces.monitoring }}
+        serviceMonitor:
+          enabled: {{ .Values.monitoring.enabled }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.data }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: drukrescue-observability
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: deploy/charts/observability
+    helm:
+      releaseName: observability
+      valuesObject:
+        appNamespace: {{ .Values.namespaces.app }}
+        dataNamespace: {{ .Values.namespaces.data }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespaces.monitoring }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
