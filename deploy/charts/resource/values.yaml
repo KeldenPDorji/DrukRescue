@@ -1,12 +1,12 @@
 # Rendered by the shared library chart (deploy/charts/drukrescue-lib). Env-specific overrides live in deploy/envs/.
 name: resource
 image:
-  tag: latest  # CI bumps this to the commit SHA (GitOps)
+  tag: sha-b7b27cf024ff # CI bumps this to the commit SHA (GitOps)
 port: 8000
 replicaCount: 1
-database: { enabled: true }
-rabbitmq: { enabled: false }
-redis: { enabled: false }
-jwt: { enabled: false }
+database: {enabled: true}
+rabbitmq: {enabled: false}
+redis: {enabled: false}
+jwt: {enabled: false}
 networkPolicy:
   allowFrom: []

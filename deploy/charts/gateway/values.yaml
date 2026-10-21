@@ -1,13 +1,13 @@
 # Rendered by the shared library chart (deploy/charts/drukrescue-lib). Env-specific overrides live in deploy/envs/.
 name: gateway
 image:
-  tag: latest  # CI bumps this to the commit SHA (GitOps)
+  tag: sha-b7b27cf024ff # CI bumps this to the commit SHA (GitOps)
 port: 8000
 replicaCount: 1
-database: { enabled: false }
-rabbitmq: { enabled: false }
-redis: { enabled: true }
-jwt: { enabled: true }
+database: {enabled: false}
+rabbitmq: {enabled: false}
+redis: {enabled: true}
+jwt: {enabled: true}
 networkPolicy:
   allowIngressController: true
   allowFrom: [frontend]

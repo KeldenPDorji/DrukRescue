@@ -1,17 +1,17 @@
 # Rendered by the shared library chart (deploy/charts/drukrescue-lib). Env-specific overrides live in deploy/envs/.
 name: auth
 image:
-  tag: latest  # CI bumps this to the commit SHA (GitOps)
+  tag: sha-b7b27cf024ff # CI bumps this to the commit SHA (GitOps)
 port: 8000
 replicaCount: 1
-database: { enabled: true }
-rabbitmq: { enabled: false }
-redis: { enabled: false }
-jwt: { enabled: true }
+database: {enabled: true}
+rabbitmq: {enabled: false}
+redis: {enabled: false}
+jwt: {enabled: true}
 networkPolicy:
   allowFrom: []
-extraEnv:  # first admin account; secret created by scripts/create-secrets.sh
+extraEnv: # first admin account; secret created by scripts/create-secrets.sh
   - name: BOOTSTRAP_ADMIN_EMAIL
-    valueFrom: { secretKeyRef: { name: drukrescue-bootstrap-admin, key: email, optional: true } }
+    valueFrom: {secretKeyRef: {name: drukrescue-bootstrap-admin, key: email, optional: true}}
   - name: BOOTSTRAP_ADMIN_PASSWORD
-    valueFrom: { secretKeyRef: { name: drukrescue-bootstrap-admin, key: password, optional: true } }
+    valueFrom: {secretKeyRef: {name: drukrescue-bootstrap-admin, key: password, optional: true}}

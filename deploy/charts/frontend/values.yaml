@@ -1,15 +1,15 @@
 # Rendered by the shared library chart (deploy/charts/drukrescue-lib).
 name: frontend
 image:
-  tag: latest  # CI bumps this to the commit SHA (GitOps)
+  tag: sha-b7b27cf024ff # CI bumps this to the commit SHA (GitOps)
 port: 8080
 replicaCount: 1
-runAsUser: 101  # nginx-unprivileged
-probes: { liveness: /healthz, readiness: /healthz }
-metrics: { enabled: false }
+runAsUser: 101 # nginx-unprivileged
+probes: {liveness: /healthz, readiness: /healthz}
+metrics: {enabled: false}
 resources:
-  requests: { cpu: 20m, memory: 32Mi }
-  limits: { memory: 64Mi }
+  requests: {cpu: 20m, memory: 32Mi}
+  limits: {memory: 64Mi}
 networkPolicy:
   allowIngressController: true
 ingress:
