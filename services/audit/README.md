@@ -26,7 +26,7 @@ each row stores `sha256(prev_hash + event_id + payload)`, and `GET /audit/verify
 
 ## Done when
 
-- [ ] Every event type in `docs/events.md` lands in the log (the consumer is bound to `#`)
-- [ ] Duplicates ignored, with tests
-- [ ] Query endpoint with filters, with tests
-- [ ] Optional: hash chain + `/audit/verify`
+- [x] Every event type in `docs/events.md` lands in the log (the consumer is bound to `#`)
+- [x] Duplicates ignored, with tests
+- [x] Query endpoint with filters, with tests
+- [x] Optional: hash chain + `/audit/verify`

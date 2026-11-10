@@ -6,7 +6,7 @@ open a branch per task (`feat/B1-alert-service`), and tick the boxes in your PR.
 
 | | Name | Services you own & must explain in the viva | Platform area |
 |---|---|---|---|
-| **A** | _______ | Gateway ✅, Auth ✅, User ✅, **Audit** | Security (JWT, NetworkPolicy, Secrets) |
+| **A** | Dupchu Wangmo | Gateway ✅, Auth ✅, User ✅, **Audit** | Security (JWT, NetworkPolicy, Secrets) |
 | **B** | _______ | Incident ✅, Notification ✅, **Alert**, **Shelter** | Helm library chart ✅ + **frontend** |
 | **C** | _______ | Dispatch ✅, Location ✅, Responder ✅, Vehicle ✅ | **Autoscaling + load testing** |
 | **D** | Kelden Phuntsho Dorji | **Resource**, **Weather**, **Analytics** | **GitOps (CI + ArgoCD) + observability** |
@@ -56,7 +56,7 @@ If the spec is unclear, ask in the group chat instead of guessing.
 
 ## Person A: Security
 
-- [ ] **A1 · Audit service.** Spec: [`services/audit/README.md`](services/audit/README.md)
+- [x] **A1 · Audit service.** Spec: [`services/audit/README.md`](services/audit/README.md)
 - [ ] **A2 · Prove the NetworkPolicies work on Kind.** From a throwaway pod in `drukrescue`, show that `curl incident:8000/healthz` is refused,
       while the gateway (and dispatch) can reach it. Check that Kind's CNI enforces policies (recent Kind versions do via kindnet; if not, document it).
       Write the commands and the expected output into `docs/runbook.md`.
