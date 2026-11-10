@@ -10,7 +10,14 @@ CITIZEN = {"X-User-Id": "citizen-1", "X-User-Role": "CITIZEN"}
 
 
 @pytest.fixture
-def client():
+def bus():
+    from app.main import bus
+
+    return bus
+
+
+@pytest.fixture
+def client(bus):
     from app.main import app, database
     from app.models import Base
 
